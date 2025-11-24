@@ -9,7 +9,7 @@ pub fn deinit(self: DMatrix) void {
     checkResult(result) catch @panic("Freeing matrix failed");
 }
 
-pub fn initFromFile(file_name: []const u8, silent: bool) DMatrix {
+pub fn initFromFile(file_name: []const u8, silent: bool) !DMatrix {
     var dmatrix_handle: DMatrixHandle = undefined;
     const result = c.XGDMatrixCreateFromFile(
         file_name,
@@ -25,7 +25,7 @@ pub fn initFromFile(file_name: []const u8, silent: bool) DMatrix {
 pub fn initFromURI(
     allocator: std.mem.Allocator,
     config: []const u8,
-) DMatrix {
+) !DMatrix {
     const c_config = try allocator.dupeZ(u8, config);
     defer allocator.free(c_config);
 
@@ -45,7 +45,7 @@ pub fn initFromColumnar(
     allocator: std.mem.Allocator,
     data: []const u8,
     config: []const u8,
-) DMatrix {
+) !DMatrix {
     const c_data = try allocator.dupeZ(u8, data);
     defer allocator.free(c_data);
 
@@ -72,20 +72,20 @@ pub fn initFromMatrix(
     missing: f32,
     options: struct {
         /// Leave null for no OpenMP
-        thread_count: ?u32,
+        thread_count: ?u32 = null,
     },
-) DMatrix {
+) !DMatrix {
     var dmatrix_handle: DMatrixHandle = undefined;
 
     const result = blk: {
         if (options.thread_count) |thread_count| {
             break :blk c.XGDMatrixCreateFromMat_omp(
-                data,
+                data.ptr,
                 rows,
                 cols,
                 missing,
                 &dmatrix_handle,
-                thread_count,
+                @intCast(thread_count),
             );
         } else {
             break :blk c.XGDMatrixCreateFromMat(

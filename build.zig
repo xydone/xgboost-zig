@@ -16,13 +16,6 @@ pub fn build(b: *std.Build) void {
     module.addIncludePath(b.path("libs/"));
     module.linkSystemLibrary("xgboost", .{});
 
-    // const xgboost = b.addLibrary(.{
-    //     .name = "xgboost",
-    //     .root_module = module,
-    //     .linkage = .dynamic,
-    // });
-    // b.installArtifact(xgboost);
-
     const mod_tests = b.addTest(.{
         .root_module = module,
     });

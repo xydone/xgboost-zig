@@ -5,18 +5,17 @@ pub const Booster = @This();
 pub const BoosterHandle = c.BoosterHandle;
 
 pub fn init(dmats: []c.DMatrixHandle, len: u64) !Booster {
-    var dmatrix_handle: c.DMatrixHandle = undefined;
-
+    var handle: c.BoosterHandle = undefined;
     const result = c.XGBoosterCreate(
         dmats.ptr,
         len,
-        &dmatrix_handle,
+        &handle,
     );
 
     try checkResult(result);
 
     return .{
-        .handle = dmatrix_handle,
+        .handle = handle,
     };
 }
 
@@ -31,19 +30,19 @@ pub fn setParam(self: Booster, name: []const u8, value: []const u8) !void {
     try checkResult(result);
 }
 
-pub fn updateOneIter(self: Booster, iter: u64, dtrain: c.DMatrixHandle) !void {
-    const result = c.XGBoosterUpdateOneIter(self.handle, @intCast(iter), dtrain);
+pub fn updateOneIter(self: Booster, iter: u64, dtrain: DMatrix) !void {
+    const result = c.XGBoosterUpdateOneIter(self.handle, @intCast(iter), dtrain.handle);
 
     try checkResult(result);
 }
 
-pub fn predict(self: Booster, dmat: c.DMatrixHandle, option_mask: i64, ntree_limit: u64, training: i64) ![]const f32 {
+pub fn predict(self: Booster, dmat: DMatrix, option_mask: i64, ntree_limit: u64, training: i64) ![]const f32 {
     var out_len: u64 = undefined;
     var out: [*c]const f32 = undefined;
 
     const result = c.XGBoosterPredict(
         self.handle,
-        dmat,
+        dmat.handle,
         @intCast(option_mask),
         @intCast(ntree_limit),
         @intCast(training),
@@ -67,19 +66,56 @@ pub fn dumpModel(self: Booster, fmap: [*c]const u8, with_stats: bool) ![][*c]con
     return out[0..out_len];
 }
 
-//pub extern fn XGBoosterReset(handle: BoosterHandle) c_int;
+pub fn reset(self: Booster) !void {
+    const result = c.XGBoosterReset(self.handle);
 
-//pub extern fn XGBoosterSlice(handle: BoosterHandle, begin_layer: c_int, end_layer: c_int, step: c_int, out: [*c]BoosterHandle) c_int;
+    try checkResult(result);
+}
 
-//pub extern fn XGBoosterBoostedRounds(handle: BoosterHandle, out: [*c]c_int) c_int;
+pub fn slice(self: Booster, begin_layer: c_int, end_layer: c_int, step: c_int) !Booster {
+    var out: c.BoosterHandle = undefined;
+    const result = c.XGBoosterSlice(self.handle, begin_layer, end_layer, step, &out);
 
-//pub extern fn XGBoosterGetNumFeature(handle: BoosterHandle, out: [*c]u64) c_int;
+    try checkResult(result);
 
-//pub extern fn XGBoosterBoostOneIter(handle: BoosterHandle, dtrain: DMatrixHandle, grad: [*c]f32, hess: [*c]f32, len: u64) c_int;
+    return .{ .handle = out };
+}
 
-//pub extern fn XGBoosterTrainOneIter(handle: BoosterHandle, dtrain: DMatrixHandle, iter: c_int, grad: [*c]const u8, hess: [*c]const u8) c_int;
+pub fn boostedRounds(self: Booster) !c_int {
+    var out: c_int = undefined;
 
-//pub extern fn XGBoosterEvalOneIter(handle: BoosterHandle, iter: c_int, dmats: [*c]DMatrixHandle, evnames: [*c][*c]const u8, len: u64, out_result: [*c][*c]const u8) c_int;
+    const result = c.XGBoosterBoostedRounds(self.handle, &out);
+
+    try checkResult(result);
+
+    return out;
+}
+
+pub fn getNumFeature(self: Booster) !u64 {
+    var out: u64 = undefined;
+
+    const result = c.XGBoosterGetNumFeature(self.handle, &out);
+
+    try checkResult(result);
+
+    return out;
+}
+
+pub fn trainOneIter(self: Booster, dtrain: DMatrix, iter: i64, grad: []const u8, hess: []const u8) !void {
+    const result = c.XGBoosterTrainOneIter(self.handle, dtrain.handle, @intCast(iter), grad.ptr, hess.ptr);
+
+    try checkResult(result);
+}
+
+pub fn evalOneIter(self: Booster, iter: i64, dmats: []c.DMatrixHandle, evnames: [][*c]const u8) ![*c][*c]const u8 {
+    const out: [*c][*c]const u8 = undefined;
+
+    const result = c.XGBoosterEvalOneIter(self.handle, @intCast(iter), dmats.ptr, evnames.ptr, dmats.len, out);
+
+    try checkResult(result);
+
+    return out;
+}
 
 //pub extern fn XGBoosterPredictFromDMatrix(handle: BoosterHandle, dmat: DMatrixHandle, config: [*c]const u8, out_shape: [*c][*c]const u64, out_dim: [*c]u64, out_result: [*c][*c]const f32) c_int;
 
@@ -96,7 +132,11 @@ pub fn dumpModel(self: Booster, fmap: [*c]const u8, with_stats: bool) ![][*c]con
 //pub extern fn XGBoosterLoadModel(handle: BoosterHandle, fname: [*c]const u8) c_int;
 
 //pub extern fn XGBoosterSaveModel(handle: BoosterHandle, fname: [*c]const u8) c_int;
+pub fn saveModel(self: Booster, file_name: []const u8) !void {
+    const result = c.XGBoosterSaveModel(self.handle, file_name.ptr);
 
+    try checkResult(result);
+}
 //pub extern fn XGBoosterLoadModelFromBuffer(handle: BoosterHandle, buf: ?*const anyopaque, len: u64) c_int;
 
 //pub extern fn XGBoosterSaveModelToBuffer(handle: BoosterHandle, config: [*c]const u8, out_len: [*c]u64, out_dptr: [*c][*c]const u8) c_int;
@@ -126,6 +166,8 @@ pub fn dumpModel(self: Booster, fmap: [*c]const u8, with_stats: bool) ![][*c]con
 //pub extern fn XGBoosterGetStrFeatureInfo(handle: BoosterHandle, field: [*c]const u8, len: [*c]u64, out_features: [*c][*c][*c]const u8) c_int;
 
 //pub extern fn XGBoosterFeatureScore(handle: BoosterHandle, config: [*c]const u8, out_n_features: [*c]u64, out_features: [*c][*c][*c]const u8, out_dim: [*c]u64, out_shape: [*c][*c]const u64, out_scores: [*c][*c]const f32) c_int;
+
+const DMatrix = @import("dmatrix.zig");
 
 const c = @import("common.zig").c;
 const checkResult = @import("common.zig").checkResult;
