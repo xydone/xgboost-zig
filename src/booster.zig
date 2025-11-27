@@ -19,13 +19,30 @@ pub fn init(dmats: []c.DMatrixHandle, len: u64) !Booster {
     };
 }
 
+pub fn initModelFromFile(file_name: [:0]const u8) !Booster {
+    var handle: c.BoosterHandle = undefined;
+    const create_result = c.XGBoosterCreate(
+        null,
+        0,
+        &handle,
+    );
+
+    try checkResult(create_result);
+
+    const result = c.XGBoosterLoadModel(handle, file_name.ptr);
+
+    try checkResult(result);
+
+    return .{ .handle = handle };
+}
+
 pub fn deinit(self: Booster) void {
     const result = c.XGBoosterFree(self.handle);
     checkResult(result) catch @panic("Freeing booster failed");
 }
 
 //TODO: name as enum
-pub fn setParam(self: Booster, name: []const u8, value: []const u8) !void {
+pub fn setParam(self: Booster, name: [:0]const u8, value: [:0]const u8) !void {
     const result = c.XGBoosterSetParam(self.handle, name.ptr, value.ptr);
     try checkResult(result);
 }
@@ -101,7 +118,7 @@ pub fn getNumFeature(self: Booster) !u64 {
     return out;
 }
 
-pub fn trainOneIter(self: Booster, dtrain: DMatrix, iter: i64, grad: []const u8, hess: []const u8) !void {
+pub fn trainOneIter(self: Booster, dtrain: DMatrix, iter: i64, grad: [:0]const u8, hess: [:0]const u8) !void {
     const result = c.XGBoosterTrainOneIter(self.handle, dtrain.handle, @intCast(iter), grad.ptr, hess.ptr);
 
     try checkResult(result);
@@ -131,8 +148,7 @@ pub fn evalOneIter(self: Booster, iter: i64, dmats: []c.DMatrixHandle, evnames: 
 
 //pub extern fn XGBoosterLoadModel(handle: BoosterHandle, fname: [*c]const u8) c_int;
 
-//pub extern fn XGBoosterSaveModel(handle: BoosterHandle, fname: [*c]const u8) c_int;
-pub fn saveModel(self: Booster, file_name: []const u8) !void {
+pub fn saveModel(self: Booster, file_name: [:0]const u8) !void {
     const result = c.XGBoosterSaveModel(self.handle, file_name.ptr);
 
     try checkResult(result);

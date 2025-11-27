@@ -9,7 +9,7 @@ pub fn deinit(self: DMatrix) void {
     checkResult(result) catch @panic("Freeing matrix failed");
 }
 
-pub fn initFromFile(file_name: []const u8, silent: bool) !DMatrix {
+pub fn initFromFile(file_name: [:0]const u8, silent: bool) !DMatrix {
     var dmatrix_handle: DMatrixHandle = undefined;
     const result = c.XGDMatrixCreateFromFile(
         file_name,
@@ -24,7 +24,7 @@ pub fn initFromFile(file_name: []const u8, silent: bool) !DMatrix {
 
 pub fn initFromURI(
     allocator: std.mem.Allocator,
-    config: []const u8,
+    config: [:0]const u8,
 ) !DMatrix {
     const c_config = try allocator.dupeZ(u8, config);
     defer allocator.free(c_config);
@@ -43,8 +43,8 @@ pub fn initFromURI(
 
 pub fn initFromColumnar(
     allocator: std.mem.Allocator,
-    data: []const u8,
-    config: []const u8,
+    data: [:0]const u8,
+    config: [:0]const u8,
 ) !DMatrix {
     const c_data = try allocator.dupeZ(u8, data);
     defer allocator.free(c_data);
@@ -103,7 +103,7 @@ pub fn initFromMatrix(
     return .{ .handle = dmatrix_handle };
 }
 
-pub fn setFloatInfo(self: DMatrix, field: []const u8, array: []f32) !void {
+pub fn setFloatInfo(self: DMatrix, field: [:0]const u8, array: []f32) !void {
     const result = c.XGDMatrixSetFloatInfo(self.handle, field.ptr, array.ptr, array.len);
 
     try checkResult(result);
